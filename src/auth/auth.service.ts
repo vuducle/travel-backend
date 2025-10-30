@@ -126,4 +126,41 @@ export class AuthService {
 
     return { accessToken, user };
   }
+
+  /**
+   * Logout user by adding token to blacklist
+   */
+  async logout(token: string): Promise<{ message: string }> {
+    // Decode token to get expiration time
+    const decoded = this.jwtService.decode(token) as { exp?: number };
+
+    if (!decoded || !decoded.exp) {
+      throw new UnauthorizedException('Invalid token');
+    }
+
+    const expiresAt = new Date(decoded.exp * 1000);
+
+    // Add token to blacklist
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    await this.prisma.tokenBlacklist.create({
+      data: {
+        token,
+        expiresAt,
+      },
+    });
+
+    return { message: 'Logged out successfully' };
+  }
+
+  /**
+   * Check if token is blacklisted
+   */
+  async isTokenBlacklisted(token: string): Promise<boolean> {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    const blacklisted = await this.prisma.tokenBlacklist.findUnique({
+      where: { token },
+    });
+
+    return !!blacklisted;
+  }
 }

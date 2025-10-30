@@ -69,6 +69,16 @@ model Entry {
   updatedAt  DateTime  @updatedAt
 }
 
+model TokenBlacklist {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([expiresAt])
+}
+
 enum Role {
   ADMIN
   USER
