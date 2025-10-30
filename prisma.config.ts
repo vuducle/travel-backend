@@ -20,10 +20,6 @@ export default defineConfig({
   migrations: {
     path: 'prisma/migrations',
   },
-  // Configure seed command so `prisma db seed` runs the TypeScript seed script
-  seed: {
-    run: 'ts-node --transpile-only prisma/seed.ts',
-  },
   engine: 'classic',
   datasource: {
     url: databaseUrl,

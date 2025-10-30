@@ -1,13 +1,21 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { PrismaService } from '../database/prisma.module';
 import { Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { RegisterDto } from './dto/register.dto';
+import { JwtService } from '@nestjs/jwt';
+import { LoginDto } from './dto/login.dto';
 
 interface UserResponse {
   id: string;
   email: string;
   name: string | null;
+  bio?: string | null;
+  location?: string | null;
   avatarUrl: string | null;
   role: Role;
   createdAt: Date;
@@ -20,10 +28,13 @@ interface RegisterResponse {
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly jwtService: JwtService,
+  ) {}
 
   async register(registerDto: RegisterDto): Promise<RegisterResponse> {
-    const { email, password, name } = registerDto;
+    const { email, password, name, bio, location } = registerDto;
 
     // Check if user already exists
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
@@ -46,11 +57,15 @@ export class AuthService {
         email,
         password: hashedPassword,
         name,
+        bio,
+        location,
       },
       select: {
         id: true,
         email: true,
         name: true,
+        bio: true,
+        location: true,
         avatarUrl: true,
         role: true,
         createdAt: true,
@@ -61,5 +76,54 @@ export class AuthService {
       message: 'User registered successfully',
       user,
     };
+  }
+
+  /**
+   * Validate user credentials. Returns the user without password on success.
+   */
+  private async validateUser(
+    email: string,
+    password: string,
+  ): Promise<UserResponse | null> {
+    // include password for comparison
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    const userWithPassword = await this.prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        password: true,
+        name: true,
+        avatarUrl: true,
+        role: true,
+        createdAt: true,
+      },
+    });
+
+    if (!userWithPassword) return null;
+
+    const match = await bcrypt.compare(password, userWithPassword.password);
+    if (!match) return null;
+
+    // strip password before returning
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password: _pw, ...safeUser } = userWithPassword;
+    return safeUser as UserResponse;
+  }
+
+  /**
+   * Login user and return JWT access token along with the user info.
+   */
+  async login(
+    loginDto: LoginDto,
+  ): Promise<{ accessToken: string; user: UserResponse }> {
+    const { email, password } = loginDto;
+    const user = await this.validateUser(email, password);
+    if (!user) throw new UnauthorizedException('Invalid credentials');
+
+    const payload = { sub: user.id, email: user.email, role: user.role };
+    const accessToken = this.jwtService.sign(payload);
+
+    return { accessToken, user };
   }
 }
