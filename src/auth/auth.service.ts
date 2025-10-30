@@ -9,6 +9,7 @@ import * as bcrypt from 'bcrypt';
 import { RegisterDto } from './dto/register.dto';
 import { JwtService } from '@nestjs/jwt';
 import { LoginDto } from './dto/login.dto';
+import { RedisService } from '../modules/redis/redis.service';
 
 interface UserResponse {
   id: string;
@@ -31,6 +32,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly redisService: RedisService,
   ) {}
 
   async register(registerDto: RegisterDto): Promise<RegisterResponse> {
@@ -138,7 +140,7 @@ export class AuthService {
   }
 
   /**
-   * Logout user by adding token to blacklist
+   * Logout user by adding token to blacklist (Redis)
    */
   async logout(token: string): Promise<{ message: string }> {
     // Decode token to get expiration time
@@ -148,29 +150,22 @@ export class AuthService {
       throw new UnauthorizedException('Invalid token');
     }
 
-    const expiresAt = new Date(decoded.exp * 1000);
+    // Calculate how many seconds until token expires
+    const now = Math.floor(Date.now() / 1000);
+    const expiresInSeconds = decoded.exp - now;
 
-    // Add token to blacklist
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    await this.prisma.tokenBlacklist.create({
-      data: {
-        token,
-        expiresAt,
-      },
-    });
+    // Only add to blacklist if token hasn't expired yet
+    if (expiresInSeconds > 0) {
+      await this.redisService.blacklistToken(token, expiresInSeconds);
+    }
 
     return { message: 'Logged out successfully' };
   }
 
   /**
-   * Check if token is blacklisted
+   * Check if token is blacklisted (Redis)
    */
   async isTokenBlacklisted(token: string): Promise<boolean> {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    const blacklisted = await this.prisma.tokenBlacklist.findUnique({
-      where: { token },
-    });
-
-    return !!blacklisted;
+    return await this.redisService.isTokenBlacklisted(token);
   }
 }
