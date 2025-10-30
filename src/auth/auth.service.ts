@@ -94,6 +94,8 @@ export class AuthService {
         email: true,
         password: true,
         name: true,
+        bio: true,
+        location: true,
         avatarUrl: true,
         role: true,
         createdAt: true,
@@ -121,7 +123,15 @@ export class AuthService {
     const user = await this.validateUser(email, password);
     if (!user) throw new UnauthorizedException('Invalid credentials');
 
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      name: user.name,
+      avatarUrl: user.avatarUrl,
+      bio: user.bio,
+      location: user.location,
+    };
     const accessToken = this.jwtService.sign(payload);
 
     return { accessToken, user };
