@@ -5,7 +5,7 @@ import * as bcrypt from 'bcrypt';
 import { RegisterDto } from './dto/register.dto';
 
 interface UserResponse {
-  id: number;
+  id: string;
   email: string;
   name: string | null;
   avatarUrl: string | null;
