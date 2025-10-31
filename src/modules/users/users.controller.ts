@@ -7,6 +7,8 @@ import {
   Body,
   UseInterceptors,
   UploadedFile,
+  Query,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -14,6 +16,7 @@ import {
   ApiOperation,
   ApiConsumes,
   ApiBody,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -66,5 +69,22 @@ export class UsersController {
       updateProfileDto,
       avatarUrl,
     );
+  }
+
+  @Get('search')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('jwt')
+  @ApiOperation({ summary: 'Search users by username' })
+  @ApiQuery({
+    name: 'username',
+    required: true,
+    description: 'Username to search for (case-insensitive partial match)',
+    example: 'armin',
+  })
+  async searchUsers(@Query('username') username: string) {
+    if (!username || username.trim().length === 0) {
+      throw new BadRequestException('Username query parameter is required');
+    }
+    return this.usersService.searchByUsername(username);
   }
 }

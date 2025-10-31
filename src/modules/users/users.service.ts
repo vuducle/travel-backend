@@ -5,6 +5,7 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 interface User {
   id: string;
   email: string;
+  username: string | null;
   name: string | null;
   avatarUrl: string | null;
   role: string;
@@ -36,6 +37,7 @@ export class UsersService {
       select: {
         id: true,
         email: true,
+        username: true,
         name: true,
         bio: true,
         location: true,
@@ -56,6 +58,7 @@ export class UsersService {
       select: {
         id: true,
         email: true,
+        username: true,
         name: true,
         bio: true,
         location: true,
@@ -69,10 +72,38 @@ export class UsersService {
     return user;
   }
 
+  async searchByUsername(username: string) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    const users = await this.prisma.user.findMany({
+      where: {
+        username: {
+          contains: username,
+          mode: 'insensitive',
+        },
+      },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        name: true,
+        bio: true,
+        location: true,
+        avatarUrl: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      take: 20, // Limit to 20 results
+    });
+
+    return users;
+  }
+
   private readonly users: User[] = [
     {
       id: '1',
       email: 'julianguyen@test.com',
+      username: 'julianguyen',
       name: 'Julian Nguyen',
       avatarUrl: null,
       role: 'ADMIN',
@@ -84,6 +115,7 @@ export class UsersService {
     {
       id: '2',
       email: 'wendyredvelvet@test.com',
+      username: 'wendyameilya',
       name: 'Wendy Ameilya',
       avatarUrl: null,
       role: 'USER',

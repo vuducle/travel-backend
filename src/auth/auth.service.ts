@@ -14,6 +14,7 @@ import { RedisService } from '../modules/redis/redis.service';
 interface UserResponse {
   id: string;
   email: string;
+  username: string | null;
   name: string | null;
   bio?: string | null;
   location?: string | null;
@@ -36,16 +37,23 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterDto): Promise<RegisterResponse> {
-    const { email, password, name, bio, location } = registerDto;
+    const { email, username, password, name, bio, location } = registerDto;
 
     // Check if user already exists
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email },
+    const existingUser = await this.prisma.user.findFirst({
+      where: {
+        OR: [{ email }, { username }],
+      },
     });
 
     if (existingUser) {
-      throw new ConflictException('User with this email already exists');
+      if (existingUser.email === email) {
+        throw new ConflictException('User with this email already exists');
+      }
+      if (existingUser.username === username) {
+        throw new ConflictException('Username is already taken');
+      }
     }
 
     // Hash password
@@ -57,6 +65,7 @@ export class AuthService {
     const user: UserResponse = await this.prisma.user.create({
       data: {
         email,
+        username,
         password: hashedPassword,
         name,
         bio,
@@ -65,6 +74,7 @@ export class AuthService {
       select: {
         id: true,
         email: true,
+        username: true,
         name: true,
         bio: true,
         location: true,
@@ -94,6 +104,7 @@ export class AuthService {
       select: {
         id: true,
         email: true,
+        username: true,
         password: true,
         name: true,
         bio: true,
